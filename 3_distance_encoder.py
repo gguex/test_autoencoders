@@ -11,8 +11,12 @@ import seaborn as sns
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 
+# Dataset
+
 mnist_dataset = MNIST("data/", train=True, download=True, transform=transforms.ToTensor())
 mnist_dataloader = DataLoader(mnist_dataset, batch_size=64, shuffle=True)
+
+# Model definition
 
 class DistEncoder(nn.Module):
 
@@ -21,32 +25,32 @@ class DistEncoder(nn.Module):
     super(DistEncoder, self).__init__()
     
     self.encoder = torch.nn.Sequential(
-      nn.Linear(input_dim, 128),
+      nn.Linear(input_dim, 256),
       nn.ReLU(),
-      nn.Linear(128, 64),
+      nn.Linear(256, 64),
       nn.ReLU(),
-      nn.Linear(64, 36),
+      nn.Linear(64, 16),
       nn.ReLU(),
-      nn.Linear(36, 16),
+      nn.Linear(16, 8),
       nn.ReLU(),
-      nn.Linear(16, low_dim)
+      nn.Linear(8, low_dim)
       )
       
   def forward(self, input_vec_1, input_vec_2):
     low_vec_1 = self.encoder(input_vec_1)
     low_vec_2 = self.encoder(input_vec_2)
     dist = torch.sum((low_vec_1 - low_vec_2)**2, 1)
-    return dist, low_vec_1
+    return dist
 
 de_model = DistEncoder(784, 2).to(device)
 print(de_model)
 
+# Training 
+
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(de_model.parameters(), lr=0.01)
 
-# Training 
-
-n_epochs = 5
+n_epochs = 10
 de_model = de_model.train()
 
 for epoch in range(n_epochs):
@@ -63,7 +67,7 @@ for epoch in range(n_epochs):
         
         optimizer.zero_grad()
 
-        estimated_d, _ = de_model(inputs_1, inputs_2)
+        estimated_d = de_model(inputs_1, inputs_2)
         
         loss = loss_fn(estimated_d, torch.sum((inputs_1 - inputs_2)**2, 1))
         loss.backward()
@@ -84,19 +88,19 @@ for inputs, outputs in mnist_dataloader:
 
   inputs = inputs.flatten(1).to(device)
 
-  _, low_coord = de_model(inputs, inputs)
+  low_coord = de_model.encoder(inputs)
   low_dim_vectors = np.concatenate((low_dim_vectors,
                                     np.array(low_coord.cpu().detach().numpy())))
   output_v = np.concatenate((output_v, outputs))
 
-sns.set(context="paper", style="white")
+# Plot 
 
+sns.set(context="paper", style="white")
 fig, ax = plt.subplots(figsize=(12, 10))
 color = output_v
 plt.scatter(low_dim_vectors[:, 0], low_dim_vectors[:, 1], c=color,
             cmap="Spectral", s=0.1)
 plt.setp(ax, xticks=[], yticks=[])
-plt.title("MNIST data embedded into two dimensions by AutoEncoder",
+plt.title("MNIST data embedded into two dimensions by Distance Encoder",
           fontsize=18)
-
 plt.show()

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,19 +24,19 @@ class AELowdim(nn.Module):
     super(AELowdim, self).__init__()
     
     self.encoder = torch.nn.Sequential(
-      nn.Linear(input_dim, 128),
+      nn.Linear(input_dim, 256),
       nn.ReLU(),
-      nn.Linear(128, 36),
+      nn.Linear(256, 64),
       nn.ReLU(),
-      nn.Linear(36, low_dim)
+      nn.Linear(64, low_dim)
     )
 
     self.decoder = torch.nn.Sequential(
-      nn.Linear(low_dim, 36),
+      nn.Linear(low_dim, 64),
       nn.ReLU(),
-      nn.Linear(36, 128),
+      nn.Linear(64, 256),
       nn.ReLU(),
-      nn.Linear(128, input_dim),
+      nn.Linear(256, input_dim),
       nn.Sigmoid()
     )
     
