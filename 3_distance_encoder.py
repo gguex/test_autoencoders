@@ -50,7 +50,7 @@ print(de_model)
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(de_model.parameters(), lr=0.01)
 
-n_epochs = 10
+n_epochs = 5
 de_model = de_model.train()
 
 for epoch in range(n_epochs):
