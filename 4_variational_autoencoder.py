@@ -128,3 +128,18 @@ plt.setp(ax, xticks=[], yticks=[])
 plt.title("MNIST data embedded into two dimensions by VarAutoEncoder",
           fontsize=18)
 plt.show()
+
+# Digit plot 
+
+def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
+    w = 28
+    img = np.zeros((n*w, n*w))
+    for i, y in enumerate(np.linspace(*r1, n)):
+        for j, x in enumerate(np.linspace(*r0, n)):
+            z = torch.Tensor([[x, y]]).to(device)
+            x_hat = autoencoder.decoder(z)
+            x_hat = x_hat.reshape(28, 28).to('cpu').detach().numpy()
+            img[(n-1-i)*w:(n-1-i+1)*w, j*w:(j+1)*w] = x_hat
+    plt.imshow(img, extent=[*r0, *r1])
+
+plot_reconstructed(var_ae_model)
