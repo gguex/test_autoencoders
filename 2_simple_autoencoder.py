@@ -118,3 +118,31 @@ def plot_reconstructed(autoencoder, r0=(-5, 10), r1=(-10, 5), n=12):
     plt.imshow(img, extent=[*r0, *r1])
 
 plot_reconstructed(ae_low_model)
+
+# Interpolation
+
+def interpolate(autoencoder, x_1, x_2, n=12):
+    z_1 = autoencoder.encoder(x_1.flatten(1))
+    z_2 = autoencoder.encoder(x_2.flatten(1))
+    z = torch.stack([z_1 + (z_2 - z_1)*t for t in np.linspace(0, 1, n)])
+    interpolate_list = autoencoder.decoder(z)
+    interpolate_list = interpolate_list.to('cpu').detach().numpy()
+
+    w = 28
+    img = np.zeros((w, n*w))
+    for i, x_hat in enumerate(interpolate_list):
+        img[:, i*w:(i+1)*w] = x_hat.reshape(28, 28)
+    plt.imshow(img)
+    plt.xticks([])
+    plt.yticks([])
+    
+digit_1 = 0
+digit_2 = 1
+
+x, y = mnist_dataloader.__iter__().next() # hack to grab a batch
+x_1 = x[y == digit_1][1].to(device) # find a 1
+x_2 = x[y == digit_2][1].to(device) # find a 0
+
+interpolate(ae_low_model, x_1, x_2, n=30)
+
+
