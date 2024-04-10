@@ -1,0 +1,6 @@
+data/celba-dataset/
+data/celba-dataset/*
+data/celba-dataset/img_align_celeba/
+data/celba-dataset/img_align_celeba/*
+data/celba-dataset/img_align_celeba/img_align_celeba/
+data/celba-dataset/img_align_celeba/img_align_celeba/*
