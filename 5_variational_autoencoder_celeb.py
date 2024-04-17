@@ -17,6 +17,8 @@ NUM_FEATURES = 128
 LOW_DIM = 200
 N_EPOCHS = 10
 
+TRAIN_MODEL = False
+
 # Dataset
 
 def transform_img(image):
@@ -126,30 +128,35 @@ print(var_ae_model)
 
 # Training 
 
-optimizer = torch.optim.Adam(var_ae_model.parameters())
-var_ae_model = var_ae_model.train()
+if TRAIN_MODEL:
 
-for epoch in range(N_EPOCHS):
+    optimizer = torch.optim.Adam(var_ae_model.parameters())
+    var_ae_model = var_ae_model.train()
 
-    train_loss = 0
+    for epoch in range(N_EPOCHS):
 
-    for inputs, _ in celeb_dataloader:
+        train_loss = 0
 
-        inputs = inputs.to(device)
-        optimizer.zero_grad()
-        estimated_outputs = var_ae_model(inputs)
-        loss = ((estimated_outputs - inputs)**2).sum() + \
-            var_ae_model.encoder.kl
-        loss.backward()
-        optimizer.step()
-        train_loss += loss.item()
+        for inputs, _ in celeb_dataloader:
 
-    print(f"Epoch {epoch} : "
-          f"train loss = {train_loss / len(celeb_dataloader.dataset)} ")
+            inputs = inputs.to(device)
+            optimizer.zero_grad()
+            estimated_outputs = var_ae_model(inputs)
+            loss = ((estimated_outputs - inputs)**2).sum() + \
+                var_ae_model.encoder.kl
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
 
-# Save the model
+        print(f"Epoch {epoch} : "
+            f"train loss = {train_loss / len(celeb_dataloader.dataset)} ")
 
-torch.save(var_ae_model.state_dict(), "models/var_ae_model_1.pth")
+    # Save the model
+
+    torch.save(var_ae_model.state_dict(), "models/var_ae_model_1.pth")
+    
+else:
+    
 
 # See an image and its reconstruction
 
