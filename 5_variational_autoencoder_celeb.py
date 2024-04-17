@@ -11,15 +11,24 @@ import pandas as pd
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 
-# Constants
+
+
+# ------------------------------------------------------------
+# --- Constants
+# ------------------------------------------------------------
 
 NUM_FEATURES = 128
 LOW_DIM = 200
 N_EPOCHS = 10
+BATCH_SIZE = 128
 
 TRAIN_MODEL = False
 
-# Dataset
+
+
+# ------------------------------------------------------------
+# --- Dataset
+# ------------------------------------------------------------
 
 def transform_img(image):
     return transforms.Compose([transforms.Resize((32, 32)),
@@ -28,9 +37,14 @@ def transform_img(image):
 celeb_dataset = ImageFolder(
     "data/celeba-dataset/img_align_celeba", 
     transform=transform_img)
-celeb_dataloader = DataLoader(celeb_dataset, batch_size=128, shuffle=True)
+celeb_dataloader = DataLoader(celeb_dataset, batch_size=BATCH_SIZE, 
+                              shuffle=True)
 
-# Model definition
+
+
+# ------------------------------------------------------------
+# --- Model definition
+# ------------------------------------------------------------
 
 class VariationalEncoder(nn.Module):
     def __init__(self, low_dim):
@@ -126,7 +140,11 @@ class VariationalAutoencoder(nn.Module):
 var_ae_model = VariationalAutoencoder(200).to(device)
 print(var_ae_model)
 
-# Training 
+
+
+# ------------------------------------------------------------
+# --- Training or loading the model
+# ------------------------------------------------------------
 
 if TRAIN_MODEL:
 
@@ -153,12 +171,16 @@ if TRAIN_MODEL:
 
     # Save the model
 
-    torch.save(var_ae_model.state_dict(), "models/var_ae_model_1.pth")
+    torch.save(var_ae_model.state_dict(), "models/var_ae_model_2.pth")
     
 else:
-    var_ae_model.load_state_dict(torch.load("models/var_ae_model_1.pth"))
+    var_ae_model.load_state_dict(torch.load("models/var_ae_model_2.pth"))
 
-# See an image and its reconstruction
+
+
+# ------------------------------------------------------------
+# --- See an image and its reconstruction
+# ------------------------------------------------------------
 
 var_ae_model = var_ae_model.eval()
 
@@ -166,9 +188,13 @@ plt.imshow(celeb_dataset[0][0].permute(1, 2, 0))
 reconstr = var_ae_model(celeb_dataset[0][0].unsqueeze(0).to(device))
 plt.imshow(reconstr.to('cpu').detach().squeeze().permute(1, 2, 0))
 
-# Interpolate between two images
 
-def interpolate(autoencoder, x_1, x_2, n=20):
+
+# ------------------------------------------------------------
+# --- Interpolate between two images
+# ------------------------------------------------------------
+
+def interpolate(autoencoder, x_1, x_2, n=10):
     z_1 = autoencoder.encoder(x_1)
     z_2 = autoencoder.encoder(x_2)
     z = torch.concat([z_1 + (z_2 - z_1)*t for t in np.linspace(0, 1, n)])
@@ -185,7 +211,7 @@ def interpolate(autoencoder, x_1, x_2, n=20):
     plt.yticks([])
 
 # Ids of the images to interpolate
-id_1 = 0
+id_1 = 1493
 id_2 = 10344
 
 plt.figure(figsize = (10, 2))
@@ -196,7 +222,10 @@ interpolate(var_ae_model, celeb_dataset[id_1][0].unsqueeze(0).to(device),
             celeb_dataset[id_2][0].unsqueeze(0).to(device))
 
 
-# --- Set attributes to images
+
+# ------------------------------------------------------------
+# --- Modify attributes to images
+# ------------------------------------------------------------
 
 # Load the attributes of the images
 celeb_df = pd.read_csv("data/celeba-dataset/list_attr_celeba.csv")
@@ -205,37 +234,71 @@ celeb_df = pd.read_csv("data/celeba-dataset/list_attr_celeba.csv")
 celeb_df.columns
 
 # Define an attribute name
-attribute = 'Mustache'
+attribute = 'Male'
+
+# A new class inheriting from ImageFolder giving the index of image
+class ImageFolderWithIndex(ImageFolder):
+    def __getitem__(self, index):
+        original_tuple = super(ImageFolderWithIndex, self).__getitem__(index)
+        tuple_with_index = (index, original_tuple)
+        return tuple_with_index
+    
+# Create the dataset with the index
+celeb_idx_dataset = ImageFolderWithIndex(
+    "data/celeba-dataset/img_align_celeba", 
+    transform=transform_img)
 
 # Unshuffled dataloader
-unshuffled_dataloader = DataLoader(celeb_dataset, batch_size=128, shuffle=False)
+unshuffled_dataloader = DataLoader(celeb_idx_dataset, batch_size=BATCH_SIZE, 
+                                   shuffle=False)
 
+# To store the sum of z values for positive and negative attributes
 positive_sum_z = np.zeros(200)
 negative_sum_z = np.zeros(200)
+n_pos = 0
+n_neg = 0
 
-for inputs, _ in unshuffled_dataloader:
-        inputs = inputs.to(device)
-        estimated_outputs = var_ae_model(inputs)
-        
-
+# Iterate over the dataset
+for idx, (inputs, _) in unshuffled_dataloader:
+    inputs = inputs.to(device)
+    estimated_outputs = var_ae_model.encoder(inputs)
+    is_pos = celeb_df[attribute].to_numpy()[idx]
+    is_pos[is_pos == -1] = 0
+    n_pos += is_pos.sum()
+    n_neg += (1 - is_pos).sum()
+    positive_sum_z += (estimated_outputs.to('cpu').detach().numpy() \
+        * is_pos.reshape(-1, 1)).sum(0)
+    negative_sum_z += (estimated_outputs.to('cpu').detach().numpy() \
+        * (1 - is_pos).reshape(-1, 1)).sum(0)
+    
 # Compute mean of the z values for positive and negative attributes
+positive_mean_z = positive_sum_z / n_pos
+negative_mean_z = negative_sum_z / n_neg
 
+# Get an image 
+id_img = 102
 
-# Get the row number for an positive and negative attribute
-positive_ids = celeb_df[celeb_df[attribute] == 1].index.to_numpy()
-negative_ids = celeb_df[celeb_df[attribute] == -1].index.to_numpy()
+# Display it
+plt.figure(figsize = (10, 2))
+plt.imshow(celeb_dataset[id_img][0].permute(1, 2, 0))
 
-# Get the image for positive ids
-positive_img = torch.stack([celeb_dataset[id][0] for id in positive_ids])
-negative_img = torch.stack([celeb_dataset[id][0] for id in negative_ids])
+n_images = 9
+max_span = 3
 
-# Get the encoded values for positive and negative images
-positive_z = var_ae_model.encoder(positive_img.to(device))
-negative_z = var_ae_model.encoder(negative_img.to(device))
+z_img = var_ae_model.encoder(celeb_dataset[id_img][0].unsqueeze(0).to(device))
+p_z = torch.tensor(positive_mean_z).unsqueeze(0).to(device).to(torch.float32)
+n_z = torch.tensor(negative_mean_z).unsqueeze(0).to(device).to(torch.float32)
 
-# Compute the mean of positive and negative images
-mean_positive = positive_z.mean(dim=0)
-mean_negative = negative_z.mean(dim=0)
+z = torch.concat([z_img + (p_z - n_z)*t 
+                  for t in np.linspace(-max_span, max_span, n_images)])
+interpolate_list = var_ae_model.decoder(z)
+interpolate_list = interpolate_list.to('cpu').detach().numpy()
 
-mean_position = celeb_df['lower_position'].mean()
-print(mean_position)
+w = 32
+img = np.zeros((w, n_images*w, 3))
+for i, x_hat in enumerate(interpolate_list):
+    img[:, i*w:(i+1)*w] = x_hat.squeeze().transpose(1, 2, 0)
+plt.figure(figsize = (40, 4))
+plt.imshow(img)
+plt.xticks([])
+plt.yticks([])
