@@ -156,7 +156,7 @@ if TRAIN_MODEL:
     torch.save(var_ae_model.state_dict(), "models/var_ae_model_1.pth")
     
 else:
-    
+    var_ae_model.load_state_dict(torch.load("models/var_ae_model_1.pth"))
 
 # See an image and its reconstruction
 
