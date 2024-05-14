@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
-from torchvision import datasets, transforms
+from torchvision import transforms
 
 import torch.nn as nn
 import torch.optim as optim
