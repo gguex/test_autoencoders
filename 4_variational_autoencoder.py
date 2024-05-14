@@ -1,3 +1,4 @@
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -164,7 +165,7 @@ def interpolate(autoencoder, x_1, x_2, n=12):
 digit_1 = 1
 digit_2 = 7
 
-x, y = mnist_dataloader.__iter__().next() # hack to grab a batch
+x, y = next(iter(mnist_dataloader)) # hack to grab a batch
 x_1 = x[y == digit_1][1].to(device) # find a 1
 x_2 = x[y == digit_2][1].to(device) # find a 0
 
